@@ -28,5 +28,7 @@ spec:
         - containerPort: 8086
         resources: {}
         tty: true
+      imagePullSecrets:
+      - name: registry-secret
       restartPolicy: Always
 status: {}

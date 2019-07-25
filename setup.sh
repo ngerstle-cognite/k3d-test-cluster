@@ -12,10 +12,23 @@ export KUBECONFIG="$(k3d get-kubeconfig --name='k3s-default')"
 kubectl get pods --all-namespaces
 
 
-#TODO insert gcp cred for image pull
+#insert gcp cred for image pull, per http://docs.heptio.com/content/private-registries/pr-gcr.html
+    # --docker-password="$(gcloud auth print-access-token)" \
+    # --docker-username=oauth2accesstoken \
+kubectl --namespace=default create secret docker-registry registry-secret \
+    --docker-server=https://gcr.io \
+    --docker-username=_json_key \
+    --docker-password="$(cat k3d-gcr-access.json)"
+    --docker-email=serviceaccount_k3d_gcr_read@cognite.com #TODO
 
-#kubectl apply -f local-service.yaml,local-deployment.yaml
-#kubectl apply -f redis-service.yaml,redis-deployment.yaml
+#wait for service account to come online
+# sleep 15
+# kubectl get serviceaccounts
+# kubectl patch serviceaccount default  -p '{"imagePullSecrets": [{"name": "registry-secret"}]}'
+# echo "account patched"
+
+kubectl apply -f local-service.yaml,local-deployment.yaml
+kubectl apply -f redis-service.yaml,redis-deployment.yaml
 
 #kubectl create namespace auth
 #TODO push configmaps
@@ -28,4 +41,5 @@ kubectl get pods --all-namespaces
 
 echo "waiting to delete"
 read -p "$*"
+kubectl get pods --all-namespaces
 k3d delete 
