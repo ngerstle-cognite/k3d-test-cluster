@@ -8,15 +8,8 @@ k3d ls
 sleep 5 
 export KUBECONFIG="$(k3d get-kubeconfig --name='k3s-default')"
 
-#list pods
-kubectl get pods --all-namespaces
 
-
-
-
-#insert gcp cred for image pull, per http://docs.heptio.com/content/private-registries/pr-gcr.html
-    # --docker-username=_json_key \
-    # --docker-password="$(cat k3d-gcr-access.json)" \
+#insert gcr access token for image pull
 kubectl --namespace=default create secret docker-registry registry-secret \
     --docker-server=https://eu.gcr.io \
     --docker-password="$(gcloud auth print-access-token)" \
@@ -35,17 +28,19 @@ kubectl apply -f redis-service.yaml,redis-deployment.yaml
 
 #kubectl create namespace auth
 #TODO push configmaps
-#TODO push ambassador config
+#TODO push ambassador
 #TODO push api-auth
-#TODO push mockOIDC?
+#TODO push ratelimiting
+#TODO push backend services as required
+#TODO remove helm, traefik
 
 sleep 5 
 kubectl get pods --all-namespaces
-
-sleep 15
+echo "This may take a while, you may want to run '$ watch -n 5 KUBECONFIG=\"$(k3d get-kubeconfig --name=\'k3s-default\')\" kubectl get pods --all-namespaces' "
+sleep 210
 kubectl get pods --all-namespaces
 
 echo "waiting to delete"
 read -p "$*"
 kubectl get pods --all-namespaces
-k3d delete 
+k3d delete
