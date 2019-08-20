@@ -34,8 +34,6 @@ sleep 10
 
 #TODO We don't use helm/traefik, so remove:
 kubectl delete -n kube-system helmcharts traefik
-# kubectl apply -f ambassador-crds.yaml
-# sleep 5
 
 kubectl apply -f local-manifest.yaml
 kubectl apply -f redis-manifest.yaml
@@ -44,8 +42,6 @@ kubectl apply -f api-auth-manifest.yaml
 
 #kubectl create namespace auth
 #TODO push configmaps
-#TODO push ambassador
-#TODO push api-auth
 #TODO push ratelimiting
 #TODO push backend services as required
 
