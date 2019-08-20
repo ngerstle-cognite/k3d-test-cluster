@@ -1,12 +1,6 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  annotations:
-    kompose.cmd: kompose convert -f redis.yml
-    kompose.version: 1.18.0 (HEAD)
-  creationTimestamp: null
-  labels:
-    io.kompose.service: redis
   name: redis
 spec:
   replicas: 1
@@ -25,3 +19,17 @@ spec:
         resources: {}
       restartPolicy: Always
 status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  ports:
+  - name: "6379"
+    port: 6379
+    targetPort: 6379
+  selector:
+    io.kompose.service: redis
+status:
+  loadBalancer: {}

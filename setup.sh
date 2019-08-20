@@ -27,7 +27,8 @@ sleep 10
 kubectl delete -n kube-system helmcharts traefik
 
 kubectl apply -f local-service.yaml,local-deployment.yaml
-kubectl apply -f redis-service.yaml,redis-deployment.yaml
+kubectl apply -f redis.yaml
+# kubectl apply -f redis-service.yaml,redis-deployment.yaml
 
 #kubectl create namespace auth
 #TODO push configmaps
