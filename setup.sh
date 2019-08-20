@@ -23,6 +23,9 @@ kubectl patch serviceaccount default  -p '{"imagePullSecrets": [{"name": "regist
 echo "account patched"
 sleep 10
 
+#TODO We don't use helm/traefik, so remove them:
+kubectl delete -n kube-system helmcharts traefik
+
 kubectl apply -f local-service.yaml,local-deployment.yaml
 kubectl apply -f redis-service.yaml,redis-deployment.yaml
 
@@ -32,7 +35,7 @@ kubectl apply -f redis-service.yaml,redis-deployment.yaml
 #TODO push api-auth
 #TODO push ratelimiting
 #TODO push backend services as required
-#TODO remove helm, traefik
+
 
 sleep 5 
 kubectl get pods --all-namespaces
