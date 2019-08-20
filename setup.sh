@@ -9,6 +9,7 @@ sleep 5
 export KUBECONFIG="$(k3d get-kubeconfig --name='k3s-default')"
 
 
+
 #insert gcr access token for image pull
 kubectl --namespace=default create secret docker-registry registry-secret \
     --docker-server=https://eu.gcr.io \
@@ -18,17 +19,17 @@ kubectl --namespace=default create secret docker-registry registry-secret \
 
 #wait for service account to come online
 sleep 15
+
 kubectl get serviceaccounts
 kubectl patch serviceaccount default  -p '{"imagePullSecrets": [{"name": "registry-secret"}]}'
 echo "account patched"
 sleep 10
 
-#TODO We don't use helm/traefik, so remove them:
+#TODO We don't use helm/traefik, so remove:
 kubectl delete -n kube-system helmcharts traefik
 
-kubectl apply -f local-service.yaml,local-deployment.yaml
-kubectl apply -f redis.yaml
-# kubectl apply -f redis-service.yaml,redis-deployment.yaml
+kubectl apply -f local-manifest.yaml
+kubectl apply -f redis-manifest.yaml
 
 #kubectl create namespace auth
 #TODO push configmaps
@@ -41,7 +42,7 @@ kubectl apply -f redis.yaml
 sleep 5 
 kubectl get pods --all-namespaces
 echo "This may take a while, you may want to run '$ watch -n 5 KUBECONFIG=\"$(k3d get-kubeconfig --name=\'k3s-default\')\" kubectl get pods --all-namespaces' "
-sleep 210
+sleep 120
 kubectl get pods --all-namespaces
 
 echo "waiting to delete"
