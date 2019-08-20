@@ -5,8 +5,8 @@ Start a local k3d (k3s in docker) based kubernetes cluster running CDF services.
 Services included:
 - [x] local service (the emulater primary mysql database, some cloud emulators)
 - [x] redis
-- [ ] ambassador
-- [ ] api-auth
+- [?] ambassador
+- [?] api-auth
 - [ ] ratelimiting
 - [ ] backend services?
 
@@ -18,3 +18,11 @@ Services included:
 ```
 $ ./setup.sh
 ```
+
+## Development:
+If you're adding a new service that needs to pull an image from gcr, don't forget to add 
+```
+imagePullSecrets:
+      - name: registry-secret
+```
+under the container spec.

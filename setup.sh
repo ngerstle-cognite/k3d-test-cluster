@@ -17,6 +17,13 @@ kubectl --namespace=default create secret docker-registry registry-secret \
     --docker-username=oauth2accesstoken \
     --docker-email=k3d-gcr-read@cognitedata.iam.gserviceaccount.com
 
+kubectl create namespace auth
+kubectl --namespace=auth create secret docker-registry registry-secret \
+    --docker-server=https://eu.gcr.io \
+    --docker-password="$(gcloud auth print-access-token)" \
+    --docker-username=oauth2accesstoken \
+    --docker-email=k3d-gcr-read@cognitedata.iam.gserviceaccount.com
+
 #wait for service account to come online
 sleep 15
 
@@ -27,9 +34,13 @@ sleep 10
 
 #TODO We don't use helm/traefik, so remove:
 kubectl delete -n kube-system helmcharts traefik
+# kubectl apply -f ambassador-crds.yaml
+# sleep 5
 
 kubectl apply -f local-manifest.yaml
 kubectl apply -f redis-manifest.yaml
+kubectl apply -f ambassador-rbac.yaml
+kubectl apply -f api-auth-manifest.yaml
 
 #kubectl create namespace auth
 #TODO push configmaps

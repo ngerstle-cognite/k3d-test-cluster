@@ -1,0 +1,467 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: auth
+  labels:
+    team: auth
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cognite-api-auth
+  namespace: auth
+  labels:
+    team: auth
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: default
+  name: search-loader-api-keys-editor-auth
+  labels:
+    team: auth
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["search-loader-api-keys"]
+    verbs: ["update", "get", "patch" ]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: search-loader-api-keys-editor-auth
+  namespace: default
+  labels:
+    team: auth
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: search-loader-api-keys-editor-auth
+subjects:
+  - kind: ServiceAccount
+    name: cognite-api-auth
+    namespace: auth
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: api-auth
+  namespace: auth
+  labels:
+    team: auth
+  annotations:
+    strategy.spinnaker.io/use-source-capacity: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-auth
+  template:
+    metadata:
+      labels:
+        app: api-auth
+        team: auth
+      annotations:
+        prometheus.io/scrape: "true"
+    spec:
+      serviceAccountName: cognite-api-auth
+      imagePullSecrets:
+        - name: registry-secret
+      containers:
+        - name: api-auth-container
+          image: eu.gcr.io/cognitedata/api-auth:latest
+          ports:
+            - name: api-auth
+              containerPort: 4567
+            - name: metrics
+              containerPort: 4568
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: api-auth
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/liveness
+              port: api-auth
+            initialDelaySeconds: 60
+            periodSeconds: 5
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - sleep
+                  - "15"
+          # volumeMounts:
+          #   - name: auth-service-account-credentials
+          #     mountPath: /secrets/auth-service-account-credentials
+          #     readOnly: true
+          resources:
+            limits:
+              cpu: 4800m
+              memory: 6Gi
+            requests:
+              cpu: 2400m
+              memory: 6Gi
+          env:
+            - name: REDIRECT_URL_BASE
+              value: http://localhost:8080
+              # valueFrom:
+              #   configMapKeyRef:
+              #     name: auth-service-config-map
+              #     key: external_url
+            # - name: ACCOUNT
+            #   value: ${account}
+            - name: SERVICE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SERVICE_NAME
+              value: api-auth
+            - name: GOOGLE_CLOUD_PROJECT
+              value: cognite-test
+              # valueFrom:
+              #   configMapKeyRef:
+              #     name: auth-service-config-map
+              #     key: google_cloud_project
+            - name: REDIS_MASTER_HOSTNAME
+              value: redis
+              # valueFrom:
+              #   configMapKeyRef:
+              #     name: auth-service-config-map
+              #     key: redis_host
+            - name: CLOUDSQL_MYSQL_USER
+              value: cognite-test
+              # valueFrom:
+              #   secretKeyRef:
+              #     name: auth-service-api-mysql-username-password
+              #     key: username
+            - name: CLOUDSQL_MYSQL_PASSWORD
+              value: cognite-test-password
+              # valueFrom:
+              #   secretKeyRef:
+              #     name: auth-service-api-mysql-username-password
+              #     key: password
+            - name: CLOUDSQL_MYSQL_HOST
+              value: local:7654
+              # value: 127.0.0.1:3306
+            # - name: GOOGLE_APPLICATION_CREDENTIALS
+            #   value: /secrets/auth-service-account-credentials/credentials.json
+            # - name: LIGHTSTEP_ACCESS_TOKEN
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: lightstep-credentials
+            #       key: production-access-token
+            # - name: UNLEASH_API_URL
+            #   value: "https://unleash.cognite.ai/api"
+            # - name: UNLEASH_CLIENT_SECRET
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: unleash-client-credentials
+            #       key: unleash_client_secret
+        # - name: cloudsql-container
+        #   image: gcr.io/cloudsql-docker/gce-proxy:1.09
+        #   command: ["/cloud_sql_proxy", "--dir=/cloudsql",
+        #             "-instances=$(MYSQL_HOST_ADDRESS)=tcp:3306",
+        #             "-credential_file=/secrets/auth-service-account-credentials/credentials.json"]
+        #   lifecycle:
+        #     preStop:
+        #       exec:
+        #         command:
+        #           - sleep
+        #           - "15"
+        #   env:
+        #     - name: MYSQL_HOST_ADDRESS
+        #       valueFrom:
+        #         configMapKeyRef:
+        #           name: auth-service-config-map
+        #           key: api_mysql_connection_name
+        #   volumeMounts:
+        #     - name: auth-service-account-credentials
+        #       mountPath: /secrets/auth-service-account-credentials
+        #       readOnly: true
+        #     - name: ssl-certs
+        #       mountPath: /etc/ssl/certs
+        #     - name: cloudsql
+        #       mountPath: /cloudsql
+        #   resources:
+        #     limits:
+        #       cpu: 1200m
+        #       memory: 1.6Gi
+        #     requests:
+        #       cpu: 100m
+        # - name: nginx-ssl-termination
+        #   image: eu.gcr.io/cognitedata/nginx-ssl-proxy:2019-06-04T1833-6f3e833
+        #   env:
+        #     - name: ENABLE_SSL
+        #       value: "true"
+        #     - name: SERVICE_PORT_ENV_NAME
+        #       value: "4567"
+        #     - name: SERVICE_HOST_ENV_NAME
+        #       value: "127.0.0.1"
+        #   ports:
+        #     - name: http
+        #       containerPort: 81
+        #     - name: https
+        #       containerPort: 443
+        #     - name: metrics
+        #       containerPort: 9145
+        #   volumeMounts:
+        #     - name: star-cognitedata-com-tls
+        #       mountPath: /etc/secrets
+        #       readOnly: true
+        #     - name: api-nginx-dhparam
+        #       mountPath: /etc/dhparam
+        #       readOnly: true
+        #   resources:
+        #     limits:
+        #       cpu: 1200m
+        #       memory: 1.6Gi
+        #   readinessProbe:
+        #     exec:
+        #       command:
+        #         - /usr/bin/status-switch.sh
+        #         - status
+        #     initialDelaySeconds: 15
+        #     periodSeconds: 3
+        #   lifecycle:
+        #     preStop:
+        #       exec:
+        #         command:
+        #           - /usr/bin/status-switch.sh
+        #           - disable
+      # volumes:
+      #   - name: auth-service-account-credentials
+      #     secret:
+      #       secretName: auth-service-account-credentials
+      #   - name: ssl-certs
+      #     hostPath:
+      #       path: /etc/ssl/certs
+      #   - name: star-cognitedata-com-tls
+      #     secret:
+      #       secretName: star-cognitedata-com-tls
+      #       items:
+      #         - key: tls.key
+      #           path: proxykey
+      #         - key: tls.crt
+      #           path: proxycert
+      #   - name: api-nginx-dhparam #TODO is this present?
+      #     configMap:
+      #       name: nginx-dhparam
+      #   - name: cloudsql
+      #     emptyDir:
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: api-auth
+    team: auth
+  name: api-auth
+  namespace: auth
+spec:
+  externalTrafficPolicy: Local
+  ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 443
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 81
+  selector:
+    app: api-auth
+  type: LoadBalancer
+---
+apiVersion: getambassador.io/v1
+kind: Mapping
+metadata:
+  name: api-auth-mapping
+  namespace: auth
+  labels:
+    team: auth
+spec:
+  prefix: /aauth/
+  service: http://api-auth.auth
+  timeout_ms: 30000
+  labels:
+    ambassador:
+      - d0:
+        - iam-service
+        - xratelimitid:
+            header: "X-Ratelimit-Id"
+            omit_if_not_present: true
+---
+apiVersion: getambassador.io/v1
+kind: Mapping
+metadata:
+  name: jwks-mapping
+  namespace: auth
+  labels:
+    team: auth
+spec:
+  prefix: /.well-known/
+  rewrite: /.well-known/
+  service: http://api-auth.auth
+  timeout_ms: 30000
+---
+apiVersion: getambassador.io/v1
+kind: Mapping
+metadata:
+  name: login-mapping
+  namespace: auth
+  labels:
+    team: auth
+spec:
+  prefix: /login/
+  rewrite: /login/
+  service: http://api-auth.auth
+  timeout_ms: 30000
+---
+apiVersion: getambassador.io/v1
+kind: Mapping
+metadata:
+  name: logout-mapping
+  namespace: auth
+  labels:
+    team: auth
+spec:
+  prefix: /logout/
+  rewrite: /logout/
+  service: http://api-auth.auth
+  timeout_ms: 30000
+---
+apiVersion: getambassador.io/v1
+kind: Mapping
+metadata:
+  name: iam-resources-mapping
+  namespace: auth
+  labels:
+    team: auth
+spec:
+  prefix: /api/[^/]+/projects/[^/]+/(users|serviceaccounts|groups|apikeys|securitycategories).*
+  prefix_regex: true
+  rewrite: ''
+  service: http://api-auth.auth
+  timeout_ms: 90000
+  labels:
+    ambassador:
+      - d0:
+        - iam-service
+        - xratelimitid:
+            header: "X-Ratelimit-Id"
+            omit_if_not_present: true
+---
+apiVersion: getambassador.io/v1
+kind: Mapping
+metadata:
+  name: projects-mapping
+  namespace: auth
+  labels:
+    team: auth
+spec:
+  prefix: /api/[^/]+/projects/[^/]+/?$
+  rewrite: ''
+  prefix_regex: true
+  service: http://api-auth.auth
+  timeout_ms: 30000
+  labels:
+    ambassador:
+      - d0:
+        - iam-service
+        - xratelimitid:
+            header: "X-Ratelimit-Id"
+            omit_if_not_present: true
+---
+apiVersion: getambassador.io/v1
+kind: Mapping
+metadata:
+  name: empty-projects-mapping
+  namespace: auth
+  labels:
+    team: auth
+spec:
+  prefix: /api/[^/]+/projects/?$
+  rewrite: ''
+  prefix_regex: true
+  service: http://api-auth.auth
+  timeout_ms: 30000
+  labels:
+    ambassador:
+      - d0:
+        - iam-service
+        - xratelimitid:
+            header: "X-Ratelimit-Id"
+            omit_if_not_present: true
+---
+apiVersion: getambassador.io/v1
+kind: Mapping
+metadata:
+  name: projects-mapping-defaultgroup
+  namespace: auth
+  labels:
+    team: auth
+spec:
+  prefix: /api/[^/]+/projects/[^/]+/defaultGroup/?
+  rewrite: ''
+  prefix_regex: true
+  service: http://api-auth.auth
+  timeout_ms: 30000
+  labels:
+    ambassador:
+      - d0:
+        - iam-service
+        - xratelimitid:
+            header: "X-Ratelimit-Id"
+            omit_if_not_present: true
+---
+apiVersion: getambassador.io/v1
+kind: AuthService
+metadata:
+  name: authentication
+  namespace: auth
+  labels:
+    team: auth
+spec:
+  auth_service: http://api-auth.auth
+  path_prefix:  "/auth/extauth"
+  proto: http
+  allowed_request_headers:
+    - "Api-Key"
+    - "Authorization"
+    - "auth-ticket"
+    - "access-control-allow-credentials"
+    - "access-control-allow-headers"
+    - "access-control-allow-methods"
+    - "access-control-max-age"
+    - "access-control-allow-origin"
+    - "access-control-expose-headers"
+    - "Origin"
+    - "X-Request-Id"
+    - "x-envoy-external-address"
+    - "x-cdp-sdk"
+    - "x-cdp-app"
+    - "x-cdp-clienttag"
+  allowed_authorization_headers:
+    - "auth-ticket"
+    - "X-Ratelimit-Id"
+    - "X-Request-Id"
+    - "access-control-allow-credentials"
+    - "access-control-allow-headers"
+    - "access-control-allow-methods"
+    - "access-control-max-age"
+    - "access-control-allow-origin"
+    - "access-control-expose-headers"
+    - "content-type"
+  allow_request_body: false
+  status_on_error: 
+    code: 503
+  failure_mode_allow: false
+  retry_policy:
+    retry_on: "5xx"
+    num_retries: 3
