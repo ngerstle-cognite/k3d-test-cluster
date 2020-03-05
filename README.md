@@ -2,13 +2,18 @@
 A local kubernetes test cluster, using k3d
 
 Start a local k3d (k3s in docker) based kubernetes cluster running CDF services.
+- [x] generate registries.yaml file
+
 Services included:
-- [x] local service (the emulater primary mysql database, some cloud emulators)
-- [x] redis
-- [?] ambassador
-- [?] api-auth
+- [ ] vault
+- [ ] ambassador
+- [ ] redis
+- [ ] iam-db
+- [ ] iam-db-migration
+- [ ] iam-db-prepopulation
+- [ ] api-auth
 - [ ] ratelimiting
-- [ ] backend services?
+- [ ] backend services
 
 
 ## Running:
@@ -19,10 +24,3 @@ Services included:
 $ ./setup.sh
 ```
 
-## Development:
-If you're adding a new service that needs to pull an image from gcr, don't forget to add 
-```
-imagePullSecrets:
-      - name: registry-secret
-```
-under the container spec.
